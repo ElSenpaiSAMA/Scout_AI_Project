@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase, Scout } from "@/lib/supabase";
 import Link from "next/link";
 
 export default function History() {
+  const searchParams = useSearchParams();
   const [scouts, setScouts] = useState<Scout[]>([]);
   const [selected, setSelected] = useState<Scout | null>(null);
   const [loading, setLoading] = useState(true);
@@ -17,10 +19,16 @@ export default function History() {
       .order("created_at", { ascending: false })
       .limit(50)
       .then(({ data }) => {
-        setScouts(data || []);
+        const list = (data || []) as Scout[];
+        setScouts(list);
         setLoading(false);
+        const idParam = searchParams.get("id");
+        if (idParam) {
+          const match = list.find((s) => s.id === idParam);
+          if (match) setSelected(match);
+        }
       });
-  }, []);
+  }, [searchParams]);
 
   const filtered = filter === "all" ? scouts : scouts.filter((s) => s.source === filter);
 

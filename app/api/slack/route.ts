@@ -34,16 +34,21 @@ async function runScoutBackground(product: string, audience: string, objective: 
     const [trends, reddit] = await Promise.all([fetchTrends(product), fetchReddit(product)]);
     const scoutText = await generateScoutText(product, audience, objective, trends, reddit);
 
-    await getSupabase()
+    const { data: inserted } = await getSupabase()
       .from("scouts")
-      .insert({ product, audience, objective, trends_data: trends, reddit_data: reddit, scout_text: scoutText, source: "slack" });
+      .insert({ product, audience, objective, trends_data: trends, reddit_data: reddit, scout_text: scoutText, source: "slack" })
+      .select("id")
+      .single();
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    const scoutUrl = inserted?.id ? `${appUrl}/history?id=${inserted.id}` : `${appUrl}/history`;
 
     const direction = trends.direction === "rising" ? "📈" : trends.direction === "declining" ? "📉" : "➡️";
     const preview = scoutText.split("\n").slice(0, 10).join("\n");
 
     await sendSlackMessage(
       responseUrl,
-      `${direction} *Scout de Campaña — ${product}*\n_@${userName} · ${objective}_\n\n${preview}\n\n_Scout completo guardado en el dashboard_`
+      `${direction} *Scout de Campaña — ${product}*\n_@${userName} · ${objective}_\n\n${preview}\n\n<${scoutUrl}|Ver scout completo →>`
     );
   } catch (e) {
     console.error("Slack scout error:", e);

@@ -30,7 +30,7 @@ def generate_summary(retries=3, backoff=10):
             result = ""
             with client.messages.stream(
                 model="claude-sonnet-4-20250514",
-                max_tokens=600,
+                max_tokens=1500,
                 system="Eres un analista de marketing. Responde SIEMPRE en español. Nunca uses inglés.",
                 messages=[{
                     "role": "user",
@@ -68,7 +68,7 @@ if slack_webhook:
         "attachments": [{
             "color": "#38bdf8",
             "title": f"📊 Informe Semanal — {datetime.now().strftime('%d/%m/%Y')}",
-            "text": f"*{len(scouts)} scouts esta semana* · {web_count} web · {slack_count} Slack\n\n{summary[:600]}",
+            "text": f"*{len(scouts)} scouts esta semana* · {web_count} web · {slack_count} Slack\n\n{summary}",
             "footer": "Scout IA · Todos los lunes a las 6am"
         }]
     })

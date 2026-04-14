@@ -26,37 +26,33 @@ export async function fetchTrends(product: string) {
 }
 
 export async function fetchReddit(product: string) {
-  try {
-    const Snoowrap = (await import("snoowrap")).default;
-    const r = new Snoowrap({
-      userAgent: "CampaignScoutGenerator/1.0",
-      clientId: process.env.REDDIT_CLIENT_ID!,
-      clientSecret: process.env.REDDIT_CLIENT_SECRET!,
-      username: process.env.REDDIT_USERNAME!,
-      password: process.env.REDDIT_PASSWORD!,
-    });
-    const posts = await r.search({ query: product, sort: "hot", time: "week", limit: 20 });
-    const POSITIVE = new Set(["great","amazing","love","best","awesome","excellent"]);
-    const NEGATIVE = new Set(["bad","terrible","worst","hate","awful","horrible"]);
-    const processed = (posts as any[]).map((p) => {
-      const words = new Set<string>(p.title.toLowerCase().split(/\s+/));
-      const sentiment = [...words].some((w) => POSITIVE.has(w)) ? "positive" : [...words].some((w) => NEGATIVE.has(w)) ? "negative" : "neutral";
-      return { title: p.title.slice(0, 150), score: p.score, subreddit: p.subreddit_name_prefixed, num_comments: p.num_comments, sentiment };
-    });
-    const sentiments = processed.reduce((acc: any, p) => ({ ...acc, [p.sentiment]: (acc[p.sentiment] || 0) + 1 }), {});
-    const subreddits = [...new Set(processed.map((p) => p.subreddit))].slice(0, 5);
-    return { posts: processed.slice(0, 8), sentiments, subreddits, avg_score: Math.round(processed.reduce((a, p) => a + p.score, 0) / (processed.length || 1)) };
-  } catch {
-    return {
-      posts: [
-        { title: `How ${product} is changing the market`, score: 1842, subreddit: "r/marketing", num_comments: 234, sentiment: "positive" },
-        { title: `Best strategies for ${product}`, score: 956, subreddit: "r/entrepreneur", num_comments: 178, sentiment: "positive" },
-        { title: `Is ${product} worth it?`, score: 743, subreddit: "r/smallbusiness", num_comments: 312, sentiment: "neutral" },
-        { title: `${product} trends this quarter`, score: 589, subreddit: "r/digitalmarketing", num_comments: 167, sentiment: "neutral" },
-      ],
-      sentiments: { positive: 2, neutral: 2, negative: 0 },
-      subreddits: ["r/marketing", "r/entrepreneur", "r/smallbusiness", "r/digitalmarketing"],
-      avg_score: 1032,
-    };
-  }
+  const POSITIVE = new Set(["great","amazing","love","best","awesome","excellent","good","perfect","fantastic","brilliant"]);
+  const NEGATIVE = new Set(["bad","terrible","worst","hate","awful","horrible","poor","disappointing","broken","scam"]);
+
+  const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(product)}&sort=hot&t=week&limit=20&raw_json=1`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": "CampaignScoutGenerator/1.0" },
+    next: { revalidate: 0 },
+  });
+
+  if (!res.ok) throw new Error(`Reddit API error: ${res.status}`);
+
+  const json = await res.json();
+  const children: any[] = json?.data?.children ?? [];
+
+  const processed = children.map((child) => {
+    const p = child.data;
+    const words = new Set<string>(p.title.toLowerCase().split(/\s+/));
+    const sentiment = [...words].some((w) => POSITIVE.has(w)) ? "positive" : [...words].some((w) => NEGATIVE.has(w)) ? "negative" : "neutral";
+    return { title: (p.title as string).slice(0, 150), score: p.score as number, subreddit: p.subreddit_name_prefixed as string, num_comments: p.num_comments as number, sentiment };
+  });
+
+  const sentiments = processed.reduce((acc: any, p) => ({ ...acc, [p.sentiment]: (acc[p.sentiment] || 0) + 1 }), {});
+  const subreddits = [...new Set(processed.map((p) => p.subreddit))].slice(0, 5);
+  return {
+    posts: processed.slice(0, 8),
+    sentiments,
+    subreddits,
+    avg_score: Math.round(processed.reduce((a, p) => a + p.score, 0) / (processed.length || 1)),
+  };
 }
