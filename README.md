@@ -1,7 +1,7 @@
 # Scout — Analiza el mercado con IA
 > Analiza el mercado en tiempo real y genera scouts de campaña con IA en menos de 30 segundos.
 
-Scout resuelve un problema concreto del día a día en marketing: antes de crear cualquier campaña hay que buscar datos de tendencias, leer foros, analizar si el mercado está activo... un proceso que puede llevar horas. Scout lo hace automático: conecta Google Trends + Reddit + Claude AI y devuelve un scout estructurado con datos reales, un score de oportunidad y predicción de demanda.
+Scout resuelve un problema concreto del día a día en marketing: antes de crear cualquier campaña hay que buscar datos de tendencias, leer foros, analizar si el mercado está activo... un proceso que puede llevar horas. Scout lo hace automático: conecta Google Trends + Tavily Search + Claude AI y devuelve un scout estructurado con datos reales, un score de oportunidad y predicción de demanda.
 
 ---
 
@@ -10,11 +10,11 @@ Scout resuelve un problema concreto del día a día en marketing: antes de crear
 | Paso | Descripción |
 |---|---|
 | 1. Tendencias | Consulta Google Trends para el producto en España: dirección (creciente / estable / en declive), estacionalidad mensual, predicción a 30 días y términos de búsqueda en alza |
-| 2. Reddit | Obtiene los posts más relevantes de la semana, analiza el sentimiento (positivo / neutral / negativo) y mide el engagement medio |
+| 2. Búsqueda web | Consulta Tavily Search para obtener resultados de foros, reviews y noticias relevantes de la semana, analiza el sentimiento (positivo / neutral / negativo) y mide el engagement medio |
 | 3. Score de Oportunidad | Algoritmo propio (0–100) que pondera tendencia, sentimiento, engagement y términos en alza |
 | 4. Scout con Claude | `claude-sonnet-4` genera en streaming un scout en 8 secciones citando los datos reales |
-| 5. Historial | Todos los scouts se guardan en Supabase, filtrables por fuente (web / Slack) |
-| 6. Slack | Comando `/scout producto \| audiencia \| objetivo` devuelve el scout directamente en el canal |
+| 5. Historial | Todos los scouts se guardan en Supabase, filtrables por fuente (web / Slack). Los scouts de Slack incluyen enlace directo al dashboard |
+| 6. Slack | Comando `/scout producto \| audiencia \| objetivo` devuelve un preview del scout con enlace directo para verlo completo |
 
 ---
 
@@ -22,7 +22,7 @@ Scout resuelve un problema concreto del día a día en marketing: antes de crear
 
 - **Framework**: Next.js 14 (App Router) + TypeScript
 - **IA**: Anthropic Claude (`claude-sonnet-4-20250514`) via `@anthropic-ai/sdk`
-- **Datos de mercado**: `google-trends-api` + Reddit API (`snoowrap`)
+- **Datos de mercado**: `google-trends-api` + Tavily Search API
 - **Base de datos**: Supabase
 - **UI**: Tailwind CSS + Recharts
 - **PDF**: jsPDF
@@ -52,14 +52,14 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_KEY=eyJ...
 
-# Reddit API — https://www.reddit.com/prefs/apps (crear app tipo "script")
-REDDIT_CLIENT_ID=tu_client_id
-REDDIT_CLIENT_SECRET=tu_client_secret
-REDDIT_USERNAME=tu_usuario_reddit
-REDDIT_PASSWORD=tu_contraseña_reddit
+# Tavily Search API — https://tavily.com (registro gratuito, 1000 búsquedas/mes)
+TAVILY_API_KEY=tvly-...
 
-# Slack (opcional)
-SLACK_SIGNING_SECRET=tu_signing_secret
+# URL pública de la app (para los enlaces del informe de Slack)
+NEXT_PUBLIC_APP_URL=https://tu-dominio.vercel.app
+
+# Slack webhook para el informe semanal (opcional)
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
 
 ### 3. Crea la tabla en Supabase
@@ -88,7 +88,7 @@ npm run dev
 
 Abre [http://localhost:3000](http://localhost:3000).
 
-> **Nota:** Si no configuras las credenciales de Reddit, la app funciona igualmente con datos de muestra para esa sección.
+> **Nota:** Tavily tiene un plan gratuito de 1000 búsquedas/mes, más que suficiente para uso normal.
 
 ---
 

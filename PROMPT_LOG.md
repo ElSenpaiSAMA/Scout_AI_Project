@@ -38,7 +38,15 @@ No había trabajado antes con slash commands y no sabía cómo resolver que gene
 
 Me explicó que hay que devolver un HTTP 200 inmediatamente y usar el "response_url" para mandar el resultado cuando esté listo. En Vercel hay un "waitUntil" que mantiene la función viva después de responder. Lo apliqué tal cual.
 
-Lo único que decidí yo fue mandar solo un preview de las primeras líneas con un link al dashboard en vez del scout entero.
+Lo único que decidí yo fue mandar solo un preview de las primeras líneas. El mensaje incluye un enlace directo al scout completo en el dashboard (`/history?id=uuid`), que se construye a partir del ID que devuelve Supabase al insertar el registro.
+
+---
+
+## Fuente de datos de mercado — de Reddit a Tavily
+
+La implementación inicial usaba Reddit (`snoowrap`) para obtener posts y sentimiento social. El problema fue que Reddit bloquea peticiones desde IPs de servidores cloud (Vercel) sin autenticación OAuth, y su proceso de registro de app es engorroso. Cuando fallaba, devolvía datos de muestra inventados sin avisar, lo que comprometía la calidad del scout sin que el usuario lo supiera.
+
+Lo reemplacé por Tavily Search API: registro en un paso, un solo API key, y devuelve resultados de foros, reviews y noticias de toda la web. Para una herramienta de marketing es incluso mejor porque no limita los resultados a Reddit.
 
 ---
 
@@ -46,7 +54,7 @@ Lo único que decidí yo fue mandar solo un preview de las primeras líneas con 
 
 Es el núcleo del proyecto así que era donde más tenía que afinar.
 
-Al principio le mandaba los datos de tendencias y Reddit con una instrucción simple. Los ignoraba. Devolvía consejos genéricos de marketing que no citaban ningún dato real.
+Al principio le mandaba los datos de tendencias y búsqueda web con una instrucción simple. Los ignoraba. Devolvía consejos genéricos de marketing que no citaban ningún dato real.
 
 Dos cosas lo arreglaron. Ponerle secciones fijas con los headers exactos que quería, sin eso la estructura cambiaba en cada llamada y no podía renderizarla bien en el dashboard. Y añadir al final: "Sé específico. Cita los datos. Sin consejos genéricos." Ese último cambio fue el más importante. Pasé de leer "considera usar redes sociales para llegar a tu audiencia" a "con una media de 1.200 votos por post en r/entrepreneur y tendencia creciente desde octubre...". Eso sí es me convencia mas.
 

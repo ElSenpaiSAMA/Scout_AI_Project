@@ -26,25 +26,37 @@ export async function fetchTrends(product: string) {
 }
 
 export async function fetchReddit(product: string) {
-  const POSITIVE = new Set(["great","amazing","love","best","awesome","excellent","good","perfect","fantastic","brilliant"]);
-  const NEGATIVE = new Set(["bad","terrible","worst","hate","awful","horrible","poor","disappointing","broken","scam"]);
+  const POSITIVE = new Set(["great","amazing","love","best","awesome","excellent","good","perfect","fantastic","brilliant","loved","recommended"]);
+  const NEGATIVE = new Set(["bad","terrible","worst","hate","awful","horrible","poor","disappointing","broken","scam","overpriced","avoid"]);
 
-  const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(product)}&sort=hot&t=week&limit=20&raw_json=1`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "CampaignScoutGenerator/1.0" },
-    next: { revalidate: 0 },
+  const res = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: process.env.TAVILY_API_KEY!,
+      query: `${product} opinions reviews discussion`,
+      search_depth: "basic",
+      max_results: 10,
+      include_answer: false,
+    }),
   });
 
-  if (!res.ok) throw new Error(`Reddit API error: ${res.status}`);
+  if (!res.ok) throw new Error(`Tavily API error: ${res.status}`);
 
   const json = await res.json();
-  const children: any[] = json?.data?.children ?? [];
+  const results: any[] = json?.results ?? [];
 
-  const processed = children.map((child) => {
-    const p = child.data;
-    const words = new Set<string>(p.title.toLowerCase().split(/\s+/));
+  const processed = results.map((r) => {
+    const text = (r.title + " " + (r.content ?? "")).toLowerCase();
+    const words = new Set<string>(text.split(/\s+/));
     const sentiment = [...words].some((w) => POSITIVE.has(w)) ? "positive" : [...words].some((w) => NEGATIVE.has(w)) ? "negative" : "neutral";
-    return { title: (p.title as string).slice(0, 150), score: p.score as number, subreddit: p.subreddit_name_prefixed as string, num_comments: p.num_comments as number, sentiment };
+    return {
+      title: (r.title as string).slice(0, 150),
+      score: Math.round((r.score ?? 0) * 1000),
+      subreddit: new URL(r.url).hostname.replace("www.", ""),
+      num_comments: 0,
+      sentiment,
+    };
   });
 
   const sentiments = processed.reduce((acc: any, p) => ({ ...acc, [p.sentiment]: (acc[p.sentiment] || 0) + 1 }), {});
