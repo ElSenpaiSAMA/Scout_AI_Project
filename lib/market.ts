@@ -1,27 +1,71 @@
 import googleTrends from "google-trends-api";
 import { buildPrediction, buildSeasonality } from "./trends";
 
+const trendsCache = new Map<string, { data: ReturnType<typeof buildTrendsResult>; ts: number }>();
+const TRENDS_TTL_MS = 6 * 60 * 60 * 1000;
+
+function buildTrendsResult(timeline: { date: string; value: number }[], risingTerms: string[]) {
+  const values = timeline.map((t) => t.value);
+  const recent = values.slice(-4).reduce((a: number, b: number) => a + b, 0) / 4;
+  const older  = values.slice(-8, -4).reduce((a: number, b: number) => a + b, 0) / 4;
+  const direction = recent > older * 1.1 ? "rising" : recent < older * 0.9 ? "declining" : "stable";
+  const peakIdx = values.indexOf(Math.max(...values));
+  return {
+    timeline,
+    prediction: buildPrediction(timeline),
+    seasonality: buildSeasonality(timeline),
+    rising_terms: risingTerms,
+    direction,
+    peak_month: timeline[peakIdx]?.date?.slice(0, 7) || "",
+    cached: false,
+  };
+}
+
 export async function fetchTrends(product: string) {
+  const cacheKey = product.toLowerCase().trim();
+
+  const hit = trendsCache.get(cacheKey);
+  if (hit && Date.now() - hit.ts < TRENDS_TTL_MS) {
+    return { ...hit.data, cached: true };
+  }
+
   try {
     const [interestRes, relatedRes] = await Promise.all([
       googleTrends.interestOverTime({ keyword: product, startTime: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), geo: "ES" }),
       googleTrends.relatedQueries({ keyword: product, geo: "ES" }),
     ]);
+
+    if (typeof interestRes === "string" && interestRes.trimStart().startsWith("<")) {
+      const is429 = interestRes.includes("429");
+      const reason = is429 ? "Google Trends rate limit (429)" : "Google Trends returned HTML instead of JSON";
+      console.warn(`[fetchTrends] ${reason} for "${product}"`);
+
+      if (hit) {
+        return { ...hit.data, cached: true };
+      }
+
+      return { timeline: [], prediction: [], seasonality: [], rising_terms: [], direction: "unknown", peak_month: "", cached: false, error: reason };
+    }
+
     const interest = JSON.parse(interestRes);
-    const related = JSON.parse(relatedRes);
+    const related  = JSON.parse(typeof relatedRes === "string" && relatedRes.trimStart().startsWith("<") ? "{}" : relatedRes);
+
     const timeline = (interest.default?.timelineData || []).map((d: any) => ({
       date: new Date(parseInt(d.time) * 1000).toISOString().split("T")[0],
       value: d.value[0],
     }));
     const risingTerms = related.default?.rankedList?.[0]?.rankedKeyword?.slice(0, 6).map((k: any) => k.query) || [];
-    const values = timeline.map((t: any) => t.value);
-    const recent = values.slice(-4).reduce((a: number, b: number) => a + b, 0) / 4;
-    const older = values.slice(-8, -4).reduce((a: number, b: number) => a + b, 0) / 4;
-    const direction = recent > older * 1.1 ? "rising" : recent < older * 0.9 ? "declining" : "stable";
-    const peakIdx = values.indexOf(Math.max(...values));
-    return { timeline, prediction: buildPrediction(timeline), seasonality: buildSeasonality(timeline), rising_terms: risingTerms, direction, peak_month: timeline[peakIdx]?.date?.slice(0, 7) || "" };
-  } catch {
-    return { timeline: [], prediction: [], seasonality: [], rising_terms: [], direction: "unknown", peak_month: "" };
+
+    const result = buildTrendsResult(timeline, risingTerms);
+
+    trendsCache.set(cacheKey, { data: result, ts: Date.now() });
+
+    return result;
+  } catch (err) {
+    console.error("[fetchTrends] Unexpected error:", err);
+    if (hit) return { ...hit.data, cached: true };
+
+    return { timeline: [], prediction: [], seasonality: [], rising_terms: [], direction: "unknown", peak_month: "", cached: false, error: "trends_unavailable" };
   }
 }
 

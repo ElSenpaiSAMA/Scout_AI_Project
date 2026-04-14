@@ -248,6 +248,21 @@ export default function Home() {
               );
             })()}
 
+            {(trendsData.error || trendsData.cached) && (
+              <div className={`flex items-start gap-3 px-4 py-3 mb-6 text-xs border ${
+                trendsData.error
+                  ? "border-amber-300 bg-amber-50 text-amber-800"
+                  : "border-zinc-200 bg-zinc-50 text-zinc-500"
+              }`}>
+                <span className="text-base leading-none mt-0.5">{trendsData.error ? "⚠️" : "🕐"}</span>
+                <span>
+                  {trendsData.error
+                    ? "Google Trends no está disponible en este momento (límite de peticiones alcanzado). Los datos de tendencia no pudieron cargarse."
+                    : "Mostrando datos de tendencia en caché — Google Trends tiene un límite de peticiones. Los datos pueden tener hasta 6 horas de antigüedad."}
+                </span>
+              </div>
+            )}
+
             <div className="grid grid-cols-4 gap-px bg-zinc-200 mb-10">
               {[
                 {
