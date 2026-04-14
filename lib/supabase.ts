@@ -20,7 +20,8 @@ export type Scout = {
   audience: string;
   objective: string;
   trends_data: any;
-  reddit_data: any;
+  youtube_data: any;
+  tavily_data: any;
   scout_text: string;
   source: "web" | "slack";
   created_at: string;

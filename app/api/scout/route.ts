@@ -7,14 +7,14 @@ function getSupabase() {
 }
 
 export async function POST(req: NextRequest) {
-  const { product, audience, objective, trendsData, redditData, source = "web" } = await req.json();
+  const { product, audience, objective, trendsData, youtubeData, tavilyData, source = "web" } = await req.json();
   const encoder = new TextEncoder();
   let fullText = "";
 
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        const stream = await streamScout(product, audience, objective, trendsData, redditData);
+        const stream = await streamScout(product, audience, objective, trendsData, youtubeData, tavilyData);
         const reader = stream.getReader();
         while (true) {
           const { done, value } = await reader.read();
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
           fullText += chunk;
           controller.enqueue(encoder.encode(chunk));
         }
-        const { error } = await getSupabase().from("scouts").insert({ product, audience, objective, trends_data: trendsData, reddit_data: redditData, scout_text: fullText, source });
+        const { error } = await getSupabase().from("scouts").insert({ product, audience, objective, trends_data: trendsData, youtube_data: youtubeData, tavily_data: tavilyData, scout_text: fullText, source });
         if (error) console.error("Supabase insert error:", error);
       } catch (e) {
         console.error("Scout stream error:", e);

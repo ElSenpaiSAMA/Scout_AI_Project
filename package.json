@@ -17,8 +17,7 @@
     "next": "14.2.0",
     "react": "^18",
     "react-dom": "^18",
-    "recharts": "^2.12.0",
-    "snoowrap": "^1.23.0"
+    "recharts": "^2.12.0"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -13,7 +13,7 @@ function formatViews(n: number) {
   return String(n);
 }
 
-export default function RedditPanel({ videos, sentiments, channels, avg_views }: Props) {
+export default function YouTubePanel({ videos, sentiments, channels, avg_views }: Props) {
   const pieData = Object.entries(sentiments).map(([name, value]) => ({ name, value }));
   return (
     <div className="bg-white border border-zinc-200 p-6">

@@ -1,7 +1,7 @@
-# Scout — Analiza el mercado con IA
+# Scout IA — Analiza el mercado con IA
 > Analiza el mercado en tiempo real y genera scouts de campaña con IA en menos de 30 segundos.
 
-Scout resuelve un problema concreto del día a día en marketing: antes de crear cualquier campaña hay que buscar datos de tendencias, leer foros, analizar si el mercado está activo... un proceso que puede llevar horas. Scout lo hace automático: conecta Google Trends + Tavily Search + Claude AI y devuelve un scout estructurado con datos reales, un score de oportunidad y predicción de demanda.
+Scout resuelve un problema concreto del día a día en marketing: antes de crear cualquier campaña hay que buscar datos de tendencias, ver qué se publica en YouTube, rastrear noticias... un proceso que puede llevar horas. Scout lo hace automático: conecta Google Trends + YouTube + Tavily + Claude AI y devuelve un scout estructurado con datos reales, un score de oportunidad y predicción de demanda.
 
 ---
 
@@ -10,11 +10,12 @@ Scout resuelve un problema concreto del día a día en marketing: antes de crear
 | Paso | Descripción |
 |---|---|
 | 1. Tendencias | Consulta Google Trends para el producto en España: dirección (creciente / estable / en declive), estacionalidad mensual, predicción a 30 días y términos de búsqueda en alza |
-| 2. Búsqueda web | Consulta Tavily Search para obtener resultados de foros, reviews y noticias relevantes de la semana, analiza el sentimiento (positivo / neutral / negativo) y mide el engagement medio |
-| 3. Score de Oportunidad | Algoritmo propio (0–100) que pondera tendencia, sentimiento, engagement y términos en alza |
-| 4. Scout con Claude | `claude-sonnet-4` genera en streaming un scout en 8 secciones citando los datos reales |
-| 5. Historial | Todos los scouts se guardan en Supabase, filtrables por fuente (web / Slack). Los scouts de Slack incluyen enlace directo al dashboard |
-| 6. Slack | Comando `/scout producto \| audiencia \| objetivo` devuelve un preview del scout con enlace directo para verlo completo |
+| 2. YouTube | Obtiene los videos más relevantes de la semana, analiza el sentimiento (positivo / neutral / negativo) y mide el engagement medio en vistas |
+| 3. Inteligencia Web | Busca con Tavily los artículos, noticias y foros más recientes sobre el producto y genera un resumen de contexto |
+| 4. Score de Oportunidad | Algoritmo propio (0–100) que pondera tendencia, sentimiento, engagement y términos en alza |
+| 5. Scout con Claude | `claude-sonnet-4` genera en streaming un scout en 8 secciones citando los datos reales |
+| 6. Historial | Todos los scouts se guardan en Supabase, filtrables por fuente (web / Slack). Los scouts de Slack incluyen enlace directo al dashboard |
+| 7. Slack | Comando `/scout producto \| audiencia \| objetivo` devuelve un preview del scout con enlace directo para verlo completo |
 
 ---
 
@@ -22,7 +23,7 @@ Scout resuelve un problema concreto del día a día en marketing: antes de crear
 
 - **Framework**: Next.js 14 (App Router) + TypeScript
 - **IA**: Anthropic Claude (`claude-sonnet-4-20250514`) via `@anthropic-ai/sdk`
-- **Datos de mercado**: `google-trends-api` + Tavily Search API
+- **Datos de mercado**: `google-trends-api` · YouTube Data API v3 · Tavily Search API
 - **Base de datos**: Supabase
 - **UI**: Tailwind CSS + Recharts
 - **PDF**: jsPDF
@@ -34,14 +35,14 @@ Scout resuelve un problema concreto del día a día en marketing: antes de crear
 ### 1. Clona el repositorio e instala dependencias
 
 ```bash
-git clone https://github.com/ElSenpaiSAMA/scout.git
-cd scout
+git clone https://github.com/ElSenpaiSAMA/Scout_AI_Project.git
+cd Scout_AI_Project
 npm install
 ```
 
 ### 2. Variables de entorno
 
-Crea un archivo `.env.local` en la raíz del proyecto con el siguiente contenido:
+Crea un archivo `.env.local` en la raíz del proyecto:
 
 ```env
 # Anthropic — https://console.anthropic.com
@@ -51,6 +52,10 @@ ANTHROPIC_API_KEY=sk-ant-...
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_KEY=eyJ...
+
+# YouTube Data API v3 — https://console.cloud.google.com
+# Activa "YouTube Data API v3" y crea una API Key
+YOUTUBE_API_KEY=AIza...
 
 # Tavily Search API — https://tavily.com (registro gratuito, 1000 búsquedas/mes)
 TAVILY_API_KEY=tvly-...
@@ -88,16 +93,26 @@ npm run dev
 
 Abre [http://localhost:3000](http://localhost:3000).
 
-> **Nota:** Tavily tiene un plan gratuito de 1000 búsquedas/mes, más que suficiente para uso normal.
-
 ---
 
 ## Configuración de Slack (opcional)
 
 1. Crea una app en [api.slack.com/apps](https://api.slack.com/apps)
 2. Añade un **Slash Command** `/scout` apuntando a `https://tu-dominio.com/api/slack`
-3. Copia el **Signing Secret** en `SLACK_SIGNING_SECRET`
+3. Añade un **Incoming Webhook** y copia la URL en `SLACK_WEBHOOK_URL`
 4. Uso desde Slack: `/scout zapatillas running | hombres 25-40 | Conversión`
+5. La respuesta incluye un preview del scout y un enlace directo al dashboard
+
+---
+
+## Informe semanal automático
+
+El workflow `.github/workflows/weekly-report.yml` se ejecuta cada lunes a las 6am UTC y:
+1. Hace un deploy a Vercel
+2. Genera un informe semanal con Claude analizando todos los scouts de la semana
+3. Lo envía al canal de Slack configurado
+
+Requiere estos secrets en GitHub Actions: `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY`, `SLACK_WEBHOOK_URL`, `VERCEL_DEPLOY_HOOK`.
 
 ---
 

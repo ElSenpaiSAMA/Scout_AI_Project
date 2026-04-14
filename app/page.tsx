@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import TrendsChart from "@/components/TrendsChart";
 import SeasonalityChart from "@/components/SeasonalityChart";
-import RedditPanel from "@/components/RedditPanel";
+import YouTubePanel from "@/components/YouTubePanel";
+import TavilyPanel from "@/components/TavilyPanel";
 import ScoutOutput from "@/components/ScoutOutput";
 
 const OBJECTIVES = [
@@ -15,13 +16,13 @@ const OBJECTIVES = [
   "Lanzamiento de Producto",
 ];
 
-function calcOpportunityScore(trendsData: any, redditData: any): { score: number; label: string; reason: string; color: string } {
+function calcOpportunityScore(trendsData: any, youtubeData: any): { score: number; label: string; reason: string; color: string } {
   let score = 0;
 
   const dirPts: Record<string, number> = { rising: 35, stable: 20, declining: 5, unknown: 10 };
   score += dirPts[trendsData.direction] ?? 10;
 
-  const sentiments = redditData?.sentiments || {};
+  const sentiments = youtubeData?.sentiments || {};
   const total = (Object.values(sentiments) as number[]).reduce((a, b) => a + b, 0);
   if (total > 0) {
     score += Math.round(((sentiments.positive || 0) / total) * 30);
@@ -29,11 +30,11 @@ function calcOpportunityScore(trendsData: any, redditData: any): { score: number
     score += 15;
   }
 
-  const avg = redditData?.avg_score || 0;
-  if (avg > 200) score += 15;
-  else if (avg > 100) score += 12;
-  else if (avg > 50) score += 8;
-  else if (avg > 10) score += 5;
+  const avg = youtubeData?.avg_views || 0;
+  if (avg > 100000) score += 15;
+  else if (avg > 50000) score += 12;
+  else if (avg > 10000) score += 8;
+  else if (avg > 1000) score += 5;
   else score += 2;
 
   score += Math.min((trendsData.rising_terms?.length || 0) * 4, 20);
@@ -42,6 +43,12 @@ function calcOpportunityScore(trendsData: any, redditData: any): { score: number
   if (s >= 70) return { score: s, label: "Alta Oportunidad", reason: "Mercado receptivo, tendencia creciente y sentimiento positivo", color: "#16a34a" };
   if (s >= 45) return { score: s, label: "Oportunidad Moderada", reason: "Condiciones favorables pero con aspectos a vigilar", color: "#d97706" };
   return { score: s, label: "Oportunidad Baja", reason: "Mercado difícil o con poco interés en este momento", color: "#dc2626" };
+}
+
+function formatViews(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return String(n);
 }
 
 const DIR_COLOR: Record<string, string> = {
@@ -65,7 +72,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState("");
   const [trendsData, setTrendsData] = useState<any>(null);
-  const [redditData, setRedditData] = useState<any>(null);
+  const [youtubeData, setYoutubeData] = useState<any>(null);
+  const [tavilyData, setTavilyData] = useState<any>(null);
   const [scoutText, setScoutText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
 
@@ -74,18 +82,22 @@ export default function Home() {
     setLoading(true);
     setScoutText("");
     setTrendsData(null);
-    setRedditData(null);
+    setYoutubeData(null);
+    setTavilyData(null);
 
     try {
       setStep("Obteniendo datos de mercado...");
-      const [trendsRes, redditRes] = await Promise.all([
+      const [trendsRes, youtubeRes, tavilyRes] = await Promise.all([
         fetch("/api/trends", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product }) }),
-        fetch("/api/reddit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product }) }),
+        fetch("/api/youtube", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product }) }),
+        fetch("/api/tavily", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product }) }),
       ]);
       const trends = await trendsRes.json();
-      const reddit = await redditRes.json();
+      const youtube = await youtubeRes.json();
+      const tavily = await tavilyRes.json();
       setTrendsData(trends);
-      setRedditData(reddit);
+      setYoutubeData(youtube);
+      setTavilyData(tavily);
 
       setStep("Generando scout con Claude...");
       setIsStreaming(true);
@@ -93,7 +105,7 @@ export default function Home() {
       const res = await fetch("/api/scout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product, audience, objective, trendsData: trends, redditData: reddit }),
+        body: JSON.stringify({ product, audience, objective, trendsData: trends, youtubeData: youtube, tavilyData: tavily }),
       });
 
       const reader = res.body!.getReader();
@@ -200,7 +212,7 @@ export default function Home() {
         {trendsData && (
           <>
             {(() => {
-              const { score, label, reason, color } = calcOpportunityScore(trendsData, redditData);
+              const { score, label, reason, color } = calcOpportunityScore(trendsData, youtubeData);
               return (
                 <div className="bg-zinc-900 p-6 mb-10 flex items-center gap-10">
                   <div className="text-center min-w-[90px]">
@@ -237,9 +249,9 @@ export default function Home() {
                   sub: "semanas de historial",
                 },
                 {
-                  label: "Posts Reddit",
-                  value: redditData?.posts?.length || 0,
-                  sub: `media ${redditData?.avg_score} votos`,
+                  label: "Videos YouTube",
+                  value: youtubeData?.videos?.length || 0,
+                  sub: `media ${youtubeData?.avg_views ? formatViews(youtubeData.avg_views) : 0} vistas`,
                 },
                 {
                   label: "Términos en alza",
@@ -263,13 +275,18 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-3 gap-6 mb-6">
-              <RedditPanel
-                posts={redditData?.posts || []}
-                sentiments={redditData?.sentiments || {}}
-                subreddits={redditData?.subreddits || []}
-                avg_score={redditData?.avg_score || 0}
+              <YouTubePanel
+                videos={youtubeData?.videos || []}
+                sentiments={youtubeData?.sentiments || {}}
+                channels={youtubeData?.channels || []}
+                avg_views={youtubeData?.avg_views || 0}
               />
-              <div className="col-span-2 bg-white border border-zinc-200 p-6">
+              <TavilyPanel
+                articles={tavilyData?.articles || []}
+                sentiments={tavilyData?.sentiments || {}}
+                answer={tavilyData?.answer || ""}
+              />
+              <div className="bg-white border border-zinc-200 p-6">
                 <p className="text-xs font-semibold text-zinc-900 uppercase tracking-widest mb-4">Términos en Alza</p>
                 <div className="flex flex-wrap gap-2">
                   {trendsData.rising_terms?.map((t: string, i: number) => (

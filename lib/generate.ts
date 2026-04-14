@@ -2,9 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
-export function buildPrompt(product: string, audience: string, objective: string, trends: any, reddit: any) {
+export function buildPrompt(product: string, audience: string, objective: string, trends: any, youtube: any, tavily?: any) {
   const rising = trends.rising_terms?.join(", ") || "none";
-  const posts = reddit.posts?.slice(0, 3).map((p: any) => `"${p.title}" (${p.score} upvotes, ${p.sentiment})`).join("\n") || "";
+  const videos = youtube.videos?.slice(0, 3).map((v: any) => `"${v.title}" (${v.views?.toLocaleString()} vistas, ${v.sentiment})`).join("\n") || "";
+  const articles = tavily?.articles?.slice(0, 3).map((a: any) => `"${a.title}" — ${a.domain} (${a.sentiment})`).join("\n") || "";
+  const webAnswer = tavily?.answer ? `\n- Resumen web: ${tavily.answer.slice(0, 300)}` : "";
   return `Crea un scout de campaña profesional en español:
 
 Producto: ${product}
@@ -14,10 +16,13 @@ Objetivo: ${objective}
 Datos de mercado:
 - Tendencia: ${trends.direction} (pico: ${trends.peak_month})
 - Búsquedas en alza: ${rising}
-- Engagement Reddit: media ${reddit.avg_score} votos
-- Sentimiento: ${JSON.stringify(reddit.sentiments)}
-- Discusiones destacadas:
-${posts}
+- Engagement YouTube: media ${youtube.avg_views?.toLocaleString()} vistas por video
+- Sentimiento YouTube: ${JSON.stringify(youtube.sentiments)}
+- Videos destacados esta semana:
+${videos}
+- Sentimiento web: ${JSON.stringify(tavily?.sentiments || {})}${webAnswer}
+- Artículos y noticias recientes:
+${articles}
 
 ## Panorama de Mercado
 ## Insights de Audiencia
@@ -31,8 +36,8 @@ ${posts}
 Sé específico. Cita los datos. Sin consejos genéricos. Todo en español.`;
 }
 
-export async function generateScoutText(product: string, audience: string, objective: string, trends: any, reddit: any): Promise<string> {
-  const prompt = buildPrompt(product, audience, objective, trends, reddit);
+export async function generateScoutText(product: string, audience: string, objective: string, trends: any, youtube: any, tavily?: any): Promise<string> {
+  const prompt = buildPrompt(product, audience, objective, trends, youtube, tavily);
   let text = "";
   const stream = await client.messages.stream({
     model: "claude-sonnet-4-20250514",
@@ -48,8 +53,8 @@ export async function generateScoutText(product: string, audience: string, objec
   return text;
 }
 
-export async function streamScout(product: string, audience: string, objective: string, trends: any, reddit: any): Promise<ReadableStream> {
-  const prompt = buildPrompt(product, audience, objective, trends, reddit);
+export async function streamScout(product: string, audience: string, objective: string, trends: any, youtube: any, tavily?: any): Promise<ReadableStream> {
+  const prompt = buildPrompt(product, audience, objective, trends, youtube, tavily);
   const stream = await client.messages.stream({
     model: "claude-sonnet-4-20250514",
     max_tokens: 1500,

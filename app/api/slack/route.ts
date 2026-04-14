@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
-import { fetchTrends, fetchReddit } from "@/lib/market";
+import { fetchTrends, fetchYouTube, fetchTavily } from "@/lib/market";
 import { generateScoutText } from "@/lib/generate";
 import { createClient } from "@supabase/supabase-js";
 
@@ -31,12 +31,12 @@ async function runScoutBackground(product: string, audience: string, objective: 
   try {
     await sendSlackMessage(responseUrl, `⏳ Analizando mercado para *${product}*... (~20 segundos)`);
 
-    const [trends, reddit] = await Promise.all([fetchTrends(product), fetchReddit(product)]);
-    const scoutText = await generateScoutText(product, audience, objective, trends, reddit);
+    const [trends, youtube, tavily] = await Promise.all([fetchTrends(product), fetchYouTube(product), fetchTavily(product)]);
+    const scoutText = await generateScoutText(product, audience, objective, trends, youtube, tavily);
 
     const { data: inserted } = await getSupabase()
       .from("scouts")
-      .insert({ product, audience, objective, trends_data: trends, reddit_data: reddit, scout_text: scoutText, source: "slack" })
+      .insert({ product, audience, objective, trends_data: trends, youtube_data: youtube, tavily_data: tavily, scout_text: scoutText, source: "slack" })
       .select("id")
       .single();
 
