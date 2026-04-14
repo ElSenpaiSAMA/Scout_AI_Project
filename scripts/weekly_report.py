@@ -1,4 +1,5 @@
 import os
+import time
 import anthropic
 import requests
 from supabase import create_client
@@ -23,14 +24,17 @@ slack_count = sum(1 for s in scouts if s.get("source") == "slack")
 
 print(f"Analysing {len(scouts)} scouts...")
 
-summary = ""
-with client.messages.stream(
-    model="claude-sonnet-4-20250514",
-    max_tokens=600,
-    system="Eres un analista de marketing. Responde SIEMPRE en español. Nunca uses inglés.",
-    messages=[{
-        "role": "user",
-        "content": f"""Informe semanal de scouts de campaña:
+def generate_summary(retries=3, backoff=10):
+    for attempt in range(retries):
+        try:
+            result = ""
+            with client.messages.stream(
+                model="claude-sonnet-4-20250514",
+                max_tokens=600,
+                system="Eres un analista de marketing. Responde SIEMPRE en español. Nunca uses inglés.",
+                messages=[{
+                    "role": "user",
+                    "content": f"""Informe semanal de scouts de campaña:
 
 Productos analizados: {', '.join(products)}
 Objetivos: {', '.join(objectives)}
@@ -43,11 +47,21 @@ Genera un informe semanal conciso. IMPORTANTE: escribe TODO el texto en español
 ## 🚀 Recomendación para la Próxima Semana
 
 RECUERDA: respuesta completa en español."""
-    }]
-) as stream:
-    for text in stream.text_stream:
-        summary += text
-        print(text, end="", flush=True)
+                }]
+            ) as stream:
+                for text in stream.text_stream:
+                    result += text
+                    print(text, end="", flush=True)
+            return result
+        except anthropic.APIStatusError as e:
+            if e.status_code == 529 and attempt < retries - 1:
+                wait = backoff * (2 ** attempt)
+                print(f"\nAPI overloaded, retrying in {wait}s... (attempt {attempt + 1}/{retries})")
+                time.sleep(wait)
+            else:
+                raise
+
+summary = generate_summary()
 
 if slack_webhook:
     requests.post(slack_webhook, json={
