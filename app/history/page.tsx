@@ -9,6 +9,18 @@ function HistoryContent() {
   const searchParams = useSearchParams();
   const [scouts, setScouts] = useState<Scout[]>([]);
   const [selected, setSelected] = useState<Scout | null>(null);
+
+  const exportPDF = async (scout: Scout) => {
+    const { default: jsPDF } = await import("jspdf");
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text(`Scout de Campaña — ${scout.product}`, 20, 20);
+    doc.setFontSize(11);
+    doc.text(`Audiencia: ${scout.audience} · Objetivo: ${scout.objective}`, 20, 30);
+    doc.setFontSize(10);
+    doc.text(doc.splitTextToSize(scout.scout_text.replace(/[##🎯👥💡📣📊⏰🚀⚠️↑↓→]/g, ""), 170), 20, 42);
+    doc.save(`scout-${scout.product.toLowerCase().replace(/\s+/g, "-")}.pdf`);
+  };
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "web" | "slack">("all");
 
@@ -107,7 +119,7 @@ function HistoryContent() {
                       {selected.audience} · {selected.objective}
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right flex flex-col items-end gap-2">
                     <span
                       className={`text-xs font-semibold uppercase tracking-widest px-3 py-1 border ${
                         selected.source === "slack"
@@ -117,9 +129,15 @@ function HistoryContent() {
                     >
                       {selected.source}
                     </span>
-                    <p className="text-xs text-zinc-900 mt-2">
+                    <p className="text-xs text-zinc-900">
                       {new Date(selected.created_at).toLocaleString("es-ES")}
                     </p>
+                    <button
+                      onClick={() => exportPDF(selected)}
+                      className="text-xs font-semibold text-zinc-900 border border-zinc-200 px-3 py-1.5 hover:border-zinc-900 transition-colors"
+                    >
+                      Exportar PDF
+                    </button>
                   </div>
                 </div>
                 <div

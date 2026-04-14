@@ -6,6 +6,7 @@ import TrendsChart from "@/components/TrendsChart";
 import SeasonalityChart from "@/components/SeasonalityChart";
 import YouTubePanel from "@/components/YouTubePanel";
 import TavilyPanel from "@/components/TavilyPanel";
+import ForecastPanel from "@/components/ForecastPanel";
 import ScoutOutput from "@/components/ScoutOutput";
 
 const OBJECTIVES = [
@@ -74,6 +75,8 @@ export default function Home() {
   const [trendsData, setTrendsData] = useState<any>(null);
   const [youtubeData, setYoutubeData] = useState<any>(null);
   const [tavilyData, setTavilyData] = useState<any>(null);
+  const [forecastData, setForecastData] = useState<any>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
   const [scoutText, setScoutText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
 
@@ -84,6 +87,7 @@ export default function Home() {
     setTrendsData(null);
     setYoutubeData(null);
     setTavilyData(null);
+    setForecastData(null);
 
     try {
       setStep("Obteniendo datos de mercado...");
@@ -99,7 +103,16 @@ export default function Home() {
       setYoutubeData(youtube);
       setTavilyData(tavily);
 
-      setStep("Generando scout con Claude...");
+      setStep("Generando pronóstico y scout...");
+      setForecastLoading(true);
+
+      // Forecast en paralelo con el scout
+      fetch("/api/forecast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product, trendsData: trends, youtubeData: youtube, tavilyData: tavily }),
+      }).then((r) => r.json()).then((f) => { setForecastData(f); setForecastLoading(false); }).catch(() => setForecastLoading(false));
+
       setIsStreaming(true);
 
       const res = await fetch("/api/scout", {
@@ -270,8 +283,17 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-2 gap-6 mb-6">
-              <TrendsChart timeline={trendsData.timeline} prediction={trendsData.prediction} />
+              <TrendsChart
+                timeline={trendsData.timeline}
+                prediction={trendsData.prediction}
+                forecastValues={forecastData?.weekly_values}
+                opportunities={forecastData?.opportunities}
+              />
               <SeasonalityChart data={trendsData.seasonality} />
+            </div>
+
+            <div className="mb-6">
+              <ForecastPanel forecast={forecastData} loading={forecastLoading} />
             </div>
 
             <div className="grid grid-cols-3 gap-6 mb-6">
